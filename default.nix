@@ -23,6 +23,16 @@ let
          (baseName == "LICENSE") ||
          (type == "directory" && baseName != "dist"));
     };
+  fetchJsaddleWarp = p:
+    with pkgs.haskell.lib;
+     doJailbreak
+      (dontCheck
+        (p.callPackage (pkgs.fetchFromGitHub {
+            owner = "ghcjs";
+            repo = "jsaddle";
+            rev = "1e398448bfa2ae506be6b99912cfa4415f6162c9";
+            sha256 = "1qrjrjagmrrlcalys33636w5cb67db52i183masb7xd93wir8963";
+         } + "/jsaddle-warp") {}));
   overrides = pkgs: {
     haskell = pkgs.haskell // {
       packages = pkgs.haskell.packages // {
@@ -39,13 +49,25 @@ let
         ghc865 = pkgs.haskell.packages.ghc865.override {
           overrides = self: super: with pkgs.haskell.lib; {
             miso = self.callCabal2nix "miso" miso-src-filter {};
+            miso-jsaddle = pkgs.lib.overrideDerivation (self.miso) (drv: {
+              configureFlags = [ "-fexamples" "-fjsaddle" ];
+            });
+            jsaddle = doJailbreak super.jsaddle;
+            jsaddle-dom = doJailbreak (super.callPackage (
+              fetchFromGitHub {
+                owner = "ghcjs";
+                repo = "jsaddle-dom";
+                rev = "dd1cc363e824e888ae29d61ac54d0e226d81fcdf";
+                sha256 = "0p1l3y8hmqiaykabayazyx5fyv6ghsxxx9g47796bzw4jl71c8xk";
+              }) {});
+            jsaddle-warp = fetchJsaddleWarp self;
+            };
           };
-        };
         ghcjs86 = pkgs.haskell.packages.ghcjs86.override {
           overrides = self: super: {
-            jsaddle-warp = super.callPackage ./jsaddle-warp-ghcjs.nix {};
             mkDerivation = args: super.mkDerivation (args // { doCheck = false; });
             doctest = null;
+            jsaddle-warp = fetchJsaddleWarp self;
             miso = (ghcjs.callCabal2nix "miso" miso-src-filter {}).overrideDerivation (drv: {
               configureFlags = [ "-fexamples" "-ftests" ];
               buildInputs = drv.buildInputs ++ [ self.jsaddle-warp self.quickcheck-instances ];
@@ -116,5 +138,6 @@ in
   inherit pkgs;
   miso-ghcjs = pkgs.haskell.packages.ghcjs86.miso;
   miso-ghc = pkgs.haskell.packages.ghc865.miso;
+  inherit (pkgs.haskell.packages.ghc865) miso-jsaddle;
   inherit payload release s3;
 }
