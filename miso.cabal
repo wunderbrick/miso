@@ -67,7 +67,7 @@ executable simple
         jsaddle-wkwebview
     else
       build-depends:
-        jsaddle-warp
+        --jsaddle-warp
 
 executable tests
   main-is:
